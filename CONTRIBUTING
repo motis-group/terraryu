@@ -1,0 +1,218 @@
+# Contributing to Our Infrastructure Repository
+
+Thank you for your interest in contributing to our infrastructure codebase! This document provides guidelines for contributing to make the process smooth and effective.
+
+## Table of Contents
+
+- [Contributing to Our Infrastructure Repository](#contributing-to-our-infrastructure-repository)
+  - [Table of Contents](#table-of-contents)
+  - [Code of Conduct](#code-of-conduct)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+  - [Development Workflow](#development-workflow)
+    - [Branch Naming Convention](#branch-naming-convention)
+  - [Coding Standards](#coding-standards)
+    - [Terraform Style Guide](#terraform-style-guide)
+    - [Resource Organization](#resource-organization)
+    - [Variable Management](#variable-management)
+  - [Testing Requirements](#testing-requirements)
+    - [Writing New Tests](#writing-new-tests)
+  - [Documentation](#documentation)
+  - [Pull Request Process](#pull-request-process)
+    - [PR Description Template](#pr-description-template)
+  - [Release Process](#release-process)
+    - [Version Numbering](#version-numbering)
+  - [Questions or Problems?](#questions-or-problems)
+
+## Code of Conduct
+
+We expect all contributors to respect each other and maintain a positive, constructive environment. Please be professional and considerate in all communications.
+
+## Getting Started
+
+### Prerequisites
+
+Ensure you have the following tools installed:
+
+- [AWS CLI](https://aws.amazon.com/cli/) (configured with appropriate credentials)
+- [Terraform](https://www.terraform.io/downloads.html) v1.0.1 or later
+- [Go](https://golang.org/dl/) 1.15.5+ (for running Terratest)
+- Git
+
+Follow the setup instructions in the [README.md](README.md#initial-setup) to configure your local environment.
+
+## Development Workflow
+
+We follow a GitOps-based workflow:
+
+1. **Create a feature branch**:
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Make your changes**:
+
+   - Keep changes focused on a single issue/feature
+   - Follow the [coding standards](#coding-standards)
+   - Test your changes locally
+
+3. **Submit a pull request** targeting the `main` branch
+
+4. **Address review feedback** and update your PR as needed
+
+5. Once approved, your changes will be merged and automatically deployed to the staging environment
+
+### Branch Naming Convention
+
+- `feature/short-description` - For new features or enhancements
+- `bugfix/issue-description` - For bug fixes
+- `refactor/component-name` - For code refactoring without functionality changes
+- `docs/update-description` - For documentation updates
+
+## Coding Standards
+
+### Terraform Style Guide
+
+- Use [Terraform standard naming conventions](https://www.terraform.io/docs/language/syntax/style.html)
+- Organize resources logically by function
+- Use modules for reusable components
+- Always run `terraform fmt` before committing code
+- Use descriptive variable and resource names
+
+```terraform
+# Good
+resource "aws_security_group" "web_server" {
+  name = "web-server-sg-${var.environment}"
+  # ...
+}
+
+# Not recommended
+resource "aws_security_group" "sg1" {
+  name = "sg1"
+  # ...
+}
+```
+
+### Resource Organization
+
+- Group related resources together in the same file
+- Split complex configurations into multiple files with clear naming
+- Use consistent structure within environment directories
+
+### Variable Management
+
+- Define all variables in `variables.tf`
+- Provide descriptions for all variables
+- Specify type constraints
+- Define sensible defaults when appropriate
+- Use environment-specific `terraform.tfvars` for local development only (do not commit)
+
+```terraform
+variable "instance_type" {
+  description = "The EC2 instance type to use for the application"
+  type        = string
+  default     = "t3.micro"
+}
+```
+
+## Testing Requirements
+
+All contributions must include appropriate tests:
+
+1. **Run Terraform validations** to ensure syntactic correctness:
+
+   ```bash
+   terraform fmt -check -recursive
+   terraform validate
+   ```
+
+2. **Create Terraform plans** to verify expected resource changes:
+
+   ```bash
+   terraform plan
+   ```
+
+3. **Write and run Terratest** for functional testing:
+   ```bash
+   cd tests/terratest
+   go test -v -timeout 30m
+   ```
+
+### Writing New Tests
+
+When adding new infrastructure components, include Terratest tests that:
+
+- Verify the component can be created successfully
+- Validate key attributes and outputs
+- Test any custom logic or conditions
+
+## Documentation
+
+Good documentation is essential for maintaining our infrastructure:
+
+- Update README.md when adding significant new features
+- Document all module inputs and outputs
+- Maintain clear comments in code for complex logic
+- Update architecture diagrams when changing infrastructure components
+- Add comments explaining "why" not just "what" for non-obvious choices
+
+## Pull Request Process
+
+1. Create a pull request with a descriptive title and detailed description
+2. Link any related issues using GitHub keywords (Fixes #123, Relates to #456)
+3. The CI pipeline will automatically run validation, linting, and tests
+4. Request review from at least one team member
+5. Address all feedback and ensure CI checks pass
+6. A maintainer will merge your PR when it's ready
+
+### PR Description Template
+
+```
+## Description
+Brief description of the changes made.
+
+## Type of change
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+
+## How Has This Been Tested?
+Describe the tests you ran to verify your changes.
+
+## Checklist:
+- [ ] My code follows the style guidelines of this project
+- [ ] I have performed a self-review of my own code
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] I have made corresponding changes to the documentation
+- [ ] My changes generate no new warnings
+- [ ] I have added tests that prove my fix is effective or that my feature works
+```
+
+## Release Process
+
+1. Releases to production happen through tagged releases
+2. Once changes are tested in staging, a maintainer will:
+   - Create a new version tag following semver (e.g., v1.2.3)
+   - Push the tag to GitHub
+   - This will automatically trigger deployment to production
+
+### Version Numbering
+
+We follow [Semantic Versioning](https://semver.org/):
+
+- MAJOR version for incompatible changes (v1.0.0 → v2.0.0)
+- MINOR version for new features in a backward compatible manner (v1.0.0 → v1.1.0)
+- PATCH version for backward compatible bug fixes (v1.0.0 → v1.0.1)
+
+## Questions or Problems?
+
+If you're unsure about anything:
+
+- Check the documentation in the README
+- Review existing code for examples
+- Ask in the #infrastructure Slack channel
+- Open an issue with the "question" label
+
+Thank you for your contributions!

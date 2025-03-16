@@ -1,0 +1,27 @@
+# This is a CODEOWNERS file to define individuals or teams responsible for code in this repository
+# Each line is a file pattern followed by one or more owners
+# Order is important - the last matching pattern has the most precedence
+
+# Default owners for everything in the repo unless a later match takes precedence
+*       @willmarzella
+
+# Infrastructure code owners
+*.tf    @terraform-admins @infrastructure-team
+*.tfvars @terraform-admins @infrastructure-team
+
+# Environment-specific configurations
+/environments/prod/    @prod-approvers @infrastructure-team
+/environments/staging/ @staging-approvers @infrastructure-team
+/environments/dev/     @dev-approvers @infrastructure-team
+
+# Module-specific owners
+/modules/data-warehouse/     @data-warehouse-team
+/modules/data-processing/    @data-processing-team
+/modules/orchestration/      @orchestration-team
+/modules/networking/         @network-team
+
+# Documentation
+/docs/    @technical-writers @data-platform-admins
+
+# Scripts and utilities
+/scripts/ @devops-team @infrastructure-team

@@ -1,0 +1,134 @@
+name: 'Terraform'
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+  pull_request:
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      # Environment configuration - modify these variables for your project
+      TF_ROOT_PATH: '.'
+      GLOBAL_PATH: 'global'
+      STAGING_PATH: 'staging'
+      PRODUCTION_PATH: 'production'
+      # Secret configuration
+      SECRETS_PREFIX: 'terraform'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.1
+          terraform_wrapper: false
+
+      - name: Configure AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ env.AWS_REGION }}
+
+      - name: Determine environment
+        id: environment
+        run: |
+          if [[ ${{ github.ref }} =~ ^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then 
+            echo "ENVIRONMENT=production" >> $GITHUB_ENV
+            echo "ENVIRONMENT_PATH=${{ env.PRODUCTION_PATH }}" >> $GITHUB_ENV
+          elif [[ ${{ github.ref }} == 'refs/heads/main' ]]; then 
+            echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+            echo "ENVIRONMENT_PATH=${{ env.STAGING_PATH }}" >> $GITHUB_ENV
+          else 
+            echo "ENVIRONMENT=development" >> $GITHUB_ENV
+            echo "ENVIRONMENT_PATH=${{ env.STAGING_PATH }}" >> $GITHUB_ENV
+          fi
+
+      - name: Get AWS Secrets
+        id: secrets
+        run: |
+          # Retrieve all secrets for the environment
+          SECRETS=$(aws secretsmanager get-secret-value --secret-id ${{ env.SECRETS_PREFIX }}/${{ env.ENVIRONMENT }} --query SecretString --output text)
+
+          # Parse JSON and extract all key-value pairs
+          echo "$SECRETS" | jq -r 'to_entries[] | "TF_VAR_\(.key)=\(.value)"' | while read line; do
+            SECRET_VALUE=$(echo "$line" | cut -d= -f2-)
+            SECRET_NAME=$(echo "$line" | cut -d= -f1)
+            # Mask secrets in logs
+            echo "::add-mask::$SECRET_VALUE"
+            echo "$line" >> $GITHUB_ENV
+          done
+
+      - name: Terraform Format
+        id: fmt
+        working-directory: ${{ env.TF_ROOT_PATH }}
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        id: init
+        working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.ENVIRONMENT_PATH }}
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.ENVIRONMENT_PATH }}
+        run: terraform plan -no-color
+        continue-on-error: true
+
+      - uses: actions/github-script@0.9.0
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            <details><summary>Show Plan</summary>
+            \`\`\`${process.env.PLAN}\`\`\`
+            </details>
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Environment: \`${{ env.ENVIRONMENT }}\`*`;
+
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15.5'
+
+      - name: Terratest Execution
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ env.TF_ROOT_PATH }}/tests/terratest
+        run: |
+          go test . -v timeout 10m
+
+      - name: Terraform Apply Global
+        if: github.event_name == 'push' || github.event_name == 'release'
+        working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.GLOBAL_PATH }}
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Terraform Apply Environment
+        if: (github.event_name == 'push' && env.ENVIRONMENT == 'staging') || (github.event_name == 'release' && env.ENVIRONMENT == 'production')
+        working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.ENVIRONMENT_PATH }}
+        run: |
+          terraform apply -auto-approve
