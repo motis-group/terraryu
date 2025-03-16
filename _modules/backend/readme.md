@@ -1,0 +1,1 @@
+This is for the Terraform state file, needs both s3 and dynamodb.
