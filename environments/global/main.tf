@@ -8,15 +8,10 @@ terraform {
     dynamodb_table = "terraform-state-locking"
     encrypt        = true
   }
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 3.0"
-    }
-    snowflake = {
-      source  = "Snowflake-Labs/snowflake"
-      version = "~> 0.45"
     }
   }
 }
@@ -24,6 +19,8 @@ terraform {
 # AWS provider for global AWS resources
 provider "aws" {
   region = "us-east-1"
+  access_key = var.aws_access_key_id
+  secret_key = var.aws_secret_access_key
 }
 
 # Other global resources could be added here:
