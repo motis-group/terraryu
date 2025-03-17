@@ -71,7 +71,7 @@ jobs:
 
       - name: Terraform Format
         id: fmt
-        working-directory: ${{ env.TF_ROOT_PATH }}
+        working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.ENVIRONMENT_PATH }}
         run: terraform fmt -check -recursive
 
       - name: Terraform Init
