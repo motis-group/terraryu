@@ -67,6 +67,12 @@ jobs:
             echo "$secret_name<<EOF" >> $GITHUB_ENV
             echo "$secret_value" >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
+            
+            # Also set lowercase version for Terraform (which expects lowercase variables)
+            lowercase_name=$(echo "$secret_name" | tr '[:upper:]' '[:lower:]')
+            echo "$lowercase_name<<EOF" >> $GITHUB_ENV
+            echo "$secret_value" >> $GITHUB_ENV  
+            echo "EOF" >> $GITHUB_ENV
           done
 
       - name: Terraform Format

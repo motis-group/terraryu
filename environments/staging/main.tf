@@ -29,7 +29,7 @@ provider "snowflake" {
   account_name      = "CH95471"
   role              = "ACCOUNTADMIN"
   authenticator     = "SNOWFLAKE_JWT"
-  private_key       = var.snowflake_private_key
+  private_key       = var.SNOWFLAKE_PRIVATE_KEY
 }
 
 module "snowflake" {
