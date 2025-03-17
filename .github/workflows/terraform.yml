@@ -83,7 +83,7 @@ jobs:
       - name: Terraform Init
         id: init
         working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.ENVIRONMENT_PATH }}
-        run: terraform init
+        run: terraform init -upgrade
 
       - name: Terraform Plan
         id: plan

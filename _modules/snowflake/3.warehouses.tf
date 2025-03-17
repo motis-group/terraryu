@@ -1,9 +1,11 @@
 resource "snowflake_warehouse" "warehouses" {
-  name           = "${local.prefix}${each.key}"
-  comment        = each.value.comment
-  warehouse_size = each.value.warehouse_size
-  auto_resume    = each.value.auto_resume
-  auto_suspend   = each.value.auto_suspend
+  name                                = "${local.prefix}${each.key}"
+  comment                             = each.value.comment
+  warehouse_size                      = each.value.warehouse_size
+  auto_resume                         = each.value.auto_resume
+  auto_suspend                        = each.value.auto_suspend
+  enable_query_acceleration           = false
+  query_acceleration_max_scale_factor = 0
 
   for_each = {
     "LOADING" = {
