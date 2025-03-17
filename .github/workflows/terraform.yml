@@ -52,28 +52,19 @@ jobs:
             echo "ENVIRONMENT_PATH=${{ env.STAGING_PATH }}" >> $GITHUB_ENV
           fi
 
-      - name: Setup HashiCorp Vault
-        uses: hashicorp/vault-action@v2
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          token: ${{ secrets.VAULT_TOKEN }}
-
-      - name: Get Vault Secrets
+      - name: Setup GitHub Actions Secrets
         id: secrets
         run: |
-          # Retrieve secrets from Vault for the environment
-          VAULT_PATH="${{ env.SECRETS_PREFIX }}/${{ env.ENVIRONMENT }}"
-
-          # Get the secrets from Vault
-          SECRETS=$(vault kv get -format=json $VAULT_PATH | jq -r '.data.data')
-
-          # Parse JSON and extract all key-value pairs
-          echo "$SECRETS" | jq -r 'to_entries[] | "TF_VAR_\(.key)=\(.value)"' | while read line; do
-            SECRET_VALUE=$(echo "$line" | cut -d= -f2-)
-            SECRET_NAME=$(echo "$line" | cut -d= -f1)
-            # Mask secrets in logs
-            echo "::add-mask::$SECRET_VALUE"
-            echo "$line" >> $GITHUB_ENV
+          # For each secret that starts with TF_VAR_
+          for secret_name in $(echo '${{ toJSON(secrets) }}' | jq -r 'keys[] | select(startswith("TF_VAR_"))'); do
+            # Get the secret value using GitHub's context
+            secret_value=$(echo '${{ toJSON(secrets) }}' | jq -r --arg key "$secret_name" '.[$key]')
+            
+            # Mask the secret in logs
+            echo "::add-mask::$secret_value"
+            
+            # Set as environment variable
+            echo "$secret_name=$secret_value" >> $GITHUB_ENV
           done
 
       - name: Terraform Format
