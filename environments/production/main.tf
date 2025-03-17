@@ -1,4 +1,12 @@
 terraform {
+  backend "s3" {
+    bucket         = "motis-group-tf-state"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-locking"
+    encrypt        = true
+  }
+  
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -13,10 +21,6 @@ terraform {
 
 locals {
   environment_name = "prod"
-}
-
-module "backend" {
-  source = "../../_modules/backend"
 }
 
 provider "snowflake" {

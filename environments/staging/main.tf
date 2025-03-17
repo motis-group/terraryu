@@ -12,9 +12,9 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 3.0"
     }
-    dbt = {
-      source  = "dbt-labs/dbt"
-      version = "~> 0.4"
+    snowflake = {
+      source  = "Snowflake-Labs/snowflake"
+      version = "~> 0.87"
     }
   }
 }
