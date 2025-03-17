@@ -16,7 +16,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       # Environment configuration - modify these variables for your project
-      TF_ROOT_PATH: '/environments'
+      TF_ROOT_PATH: './environments'
       GLOBAL_PATH: 'global'
       STAGING_PATH: 'staging'
       PRODUCTION_PATH: 'production'
