@@ -14,7 +14,7 @@ locals {
 provider "snowflake" {
   organization_name = "ZYQKSDZ"
   account_name      = "CH95471"
-  user          = "WILLMARZELLA"
+  user              = "WILLMARZELLA"
   role              = "ACCOUNTADMIN"
   authenticator     = "SNOWFLAKE_JWT"
   private_key       = var.SNOWFLAKE_PRIVATE_KEY
