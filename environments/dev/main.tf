@@ -1,103 +1,89 @@
-# Configure the provider(s)
-provider "aws" {
-  region = var.region
-  profile = var.profile
-  default_tags {
-    tags = {
-      Environment = "dev"
-      Project     = var.project_name
-      ManagedBy   = "terraform"
+terraform {
+  # backend "s3" {
+  #   bucket         = "motis-group-tf-state"
+  #   key            = "terraform.tfstate"
+  #   region         = "us-east-1"
+  #   dynamodb_table = "terraform-state-locking"
+  #   encrypt        = true
+  # }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
+    }
+    snowflake = {
+      source  = "Snowflake-Labs/snowflake"
+      version = "~> 0.87"
     }
   }
 }
 
-# Use a data source to get the current AWS account ID
-data "aws_caller_identity" "current" {}
-
-# Development VPC
-module "vpc" {
-  source = "../../modules/vpc"
-  
-  name               = "${var.project_name}-dev"
-  cidr               = var.vpc_cidr
-  azs                = var.availability_zones
-  private_subnets    = var.private_subnet_cidrs
-  public_subnets     = var.public_subnet_cidrs
-  
-  enable_nat_gateway = true
-  single_nat_gateway = true  # Cost-saving for dev environment
-  
-  tags = {
-    Environment = "dev"
-  }
+locals {
+  environment_name = "dev"
 }
 
-# S3 bucket for development assets
-resource "aws_s3_bucket" "dev_assets" {
-  bucket = "${var.project_name}-dev-assets-${data.aws_caller_identity.current.account_id}"
-  
-  tags = {
-    Name = "${var.project_name}-dev-assets"
-  }
+module "backend" {
+  source = "../../_modules/backend"
 }
 
-# Security group for development resources
-resource "aws_security_group" "dev_sg" {
-  name        = "${var.project_name}-dev-sg"
-  description = "Security group for development resources"
-  vpc_id      = module.vpc.vpc_id
-  
-  ingress {
-    description = "SSH from dev IPs"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.dev_access_cidrs
-  }
-  
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+provider "snowflake" {
+  user              = "WILLMARZELLA"
+  organization_name = "ZYQKSDZ"
+  account_name      = "CH95471"
+  role              = "ACCOUNTADMIN"
+  authenticator     = "SNOWFLAKE_JWT"
+  private_key       = var.snowflake_private_key
 }
 
-# Example EC2 instance for development
-resource "aws_instance" "dev_instance" {
-  ami                    = var.instance_ami
-  instance_type          = "t3.micro"  # Smaller instance for dev
-  subnet_id              = module.vpc.private_subnets[0]
-  vpc_security_group_ids = [aws_security_group.dev_sg.id]
-  key_name               = var.ssh_key_name
-  
-  tags = {
-    Name = "${var.project_name}-dev-instance"
-  }
+module "snowflake" {
+  source   = "../../_modules/snowflake"
+  env_name = local.environment_name
 }
 
-# Output important information
-output "vpc_id" {
-  description = "The ID of the dev VPC"
-  value       = module.vpc.vpc_id
-}
+# Add dbt Cloud module that uses Snowflake infrastructure
+# module "dbt" {
+#   source = "../../_modules/dbt"
 
-output "private_subnet_ids" {
-  description = "The IDs of the private subnets"
-  value       = module.vpc.private_subnets
-}
+#   # Use project name from variables with environment suffix
+#   project_prefix = "${var.project_name}-${local.environment_name}"
 
-output "public_subnet_ids" {
-  description = "The IDs of the public subnets"
-  value       = module.vpc.public_subnets
-}
+#   # Connect to Snowflake using outputs from Snowflake module
+#   snowflake_account = var.snowflake_account
+#   snowflake_analytics_database = module.snowflake.analytics_database_name
+#   snowflake_transforming_warehouse = module.snowflake.transforming_warehouse_name
+#   snowflake_transformer_role = module.snowflake.transformer_role_name
 
-output "dev_instance_id" {
-  description = "The ID of the development EC2 instance"
-  value       = aws_instance.dev_instance.id
-}
+#   # dbt Cloud specific configuration
+#   dbt_cloud_api_key = var.dbt_cloud_api_key
+#   dbt_repository_url = var.dbt_repository_url
+#   github_installation_id = var.github_installation_id
 
-output "assets_bucket_name" {
-  description = "The name of the S3 bucket for dev assets"
-  value       = aws_s3_bucket.dev_assets.bucket
-}
+#   # Use credentials from Snowflake module
+#   snowflake_dbt_user = module.snowflake.dbt_user_name
+#   snowflake_dbt_password = var.dbt_user_password
+
+#   # Ensure dbt resources are created after Snowflake resources
+#   depends_on = [module.snowflake]
+# }
+
+# Output important values
+# output "analytics_database" {
+#   value = module.snowflake.analytics_database_name
+#   description = "The name of the analytics database"
+# }
+
+# output "raw_database" {
+#   value = module.snowflake.raw_database_name
+#   description = "The name of the raw database"
+# }
+
+# output "dbt_project_id" {
+#   value = module.dbt.dbt_project_id
+#   description = "dbt Cloud project ID"
+# }
+
+# output "dbt_daily_job_id" {
+#   value = module.dbt.dbt_prod_job_id
+#   description = "dbt daily transformation job ID"
+# }
