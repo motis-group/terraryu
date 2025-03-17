@@ -58,13 +58,15 @@ jobs:
           # For each secret that starts with TF_VAR_
           for secret_name in $(echo '${{ toJSON(secrets) }}' | jq -r 'keys[] | select(startswith("TF_VAR_"))'); do
             # Get the secret value using GitHub's context
-            secret_value=$(echo '${{ toJSON(secrets) }}' | jq -r --arg key "$secret_name" '.[$key]')
+            secret_value=$(jq -r --arg key "$secret_name" '.[$key]' <<< '${{ toJSON(secrets) }}')
             
             # Mask the secret in logs
             echo "::add-mask::$secret_value"
             
-            # Set as environment variable
-            echo "$secret_name=$secret_value" >> $GITHUB_ENV
+            # Set as environment variable - ensure proper escaping
+            echo "$secret_name<<EOF" >> $GITHUB_ENV
+            echo "$secret_value" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
           done
 
       - name: Terraform Format
