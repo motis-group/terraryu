@@ -1,5 +1,5 @@
 resource "snowflake_account_role" "roles" {
-  name = "${local.prefix}${each.key}"
+  name    = "${local.prefix}${each.key}"
   comment = each.value.comment
   # This "depends_on" caluase ensures all the roles are destroyed before warehouse, schema and (implicitly) database objects. 
   # This is necessary to avoid a bug where a strey-object-thread begins, but the creted ROLE with OWNERSHIP on
