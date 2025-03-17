@@ -2,7 +2,7 @@ terraform {
   required_providers {
     snowflake = {
       source  = "Snowflake-Labs/snowflake"
-      version = "~> 0.87"
+      version = "1.0.4"
     }
   }
 }
@@ -12,9 +12,9 @@ locals {
 }
 
 provider "snowflake" {
-  user              = "WILLMARZELLA"
   organization_name = "ZYQKSDZ"
   account_name      = "CH95471"
+  user          = "WILLMARZELLA"
   role              = "ACCOUNTADMIN"
   authenticator     = "SNOWFLAKE_JWT"
   private_key       = var.SNOWFLAKE_PRIVATE_KEY
