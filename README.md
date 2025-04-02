@@ -91,6 +91,44 @@ SNOWFLAKE_USER=your_user
 SNOWFLAKE_PASSWORD=your_password
 ```
 
+### Bootstrapping a New Environment
+
+To set up a new environment from scratch, you need to run the bootstrap process first:
+
+1. Run the bootstrap Terraform configuration:
+
+   ```bash
+   cd terraform/00-bootstrap
+   terraform init
+   terraform apply -var="environment=dev"
+   ```
+
+2. After the bootstrap resources are created, populate the AWS Secrets Manager with credentials:
+
+   ```bash
+   aws secretsmanager update-secret --secret-id data-platform/dev/credentials --secret-string '{
+     "SNOWFLAKE_ACCOUNT": "your-account",
+     "SNOWFLAKE_USER": "your-user",
+     "SNOWFLAKE_PASSWORD": "your-password",
+     "SNOWFLAKE_WAREHOUSE": "your-warehouse",
+     "SNOWFLAKE_DATABASE": "your-database",
+     "SNOWFLAKE_SCHEMA": "your-schema",
+     "SNOWFLAKE_ROLE": "your-role"
+   }'
+   ```
+
+3. Configure the backend to use the created S3 bucket and DynamoDB table:
+   ```bash
+   cd terraform
+   terraform init \
+     -backend-config="bucket=data-platform-terraform-state-dev" \
+     -backend-config="key=terraform.tfstate" \
+     -backend-config="region=us-west-2" \
+     -backend-config="dynamodb_table=data-platform-terraform-locks-dev"
+   ```
+
+For more details, see [Credential Management](docs/credential_management.md).
+
 ## Workflow Development
 
 ### Creating a New Flow
