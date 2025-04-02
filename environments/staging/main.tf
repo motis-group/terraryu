@@ -2,31 +2,25 @@ terraform {
   required_providers {
     snowflake = {
       source  = "Snowflake-Labs/snowflake"
-      version = "0.63.0"
+      version = "1.0.4"
     }
   }
+}
 
-  backend "s3" {
-    bucket         = "<your-bucket-name>"
-    key            = "terraform-staging.tfstate"
-    region         = "<bucket-region>"
-    # Optional DynamoDB for state locking. See https://developer.hashicorp.com/terraform/language/settings/backends/s3 for details.
-    # dynamodb_table = "terraform-state-lock-table"
-    encrypt        = true
-    role_arn       = "arn:aws:iam::<your-aws-account-no>:role/<terraform-s3-backend-access-role>"
-  }
+locals {
+  environment_name = "staging"
 }
 
 provider "snowflake" {
-  username    = "<your_snowflake_username>"
-  account     = "<your_snowflake_account_identifier>"
-  role        = "<your_snowflake_role>"
-  private_key = var.snowflake_private_key
+  organization_name = "ZYQKSDZ"
+  account_name      = "CH95471"
+  user              = "WILLMARZELLA"
+  role              = "ACCOUNTADMIN"
+  authenticator     = "SNOWFLAKE_JWT"
+  private_key       = var.SNOWFLAKE_PRIVATE_KEY
 }
 
-module "snowflake_resources" {
-  source              = "../modules/snowflake"
-  time_travel_in_days = 1
-  database            = var.database
-  env_name            = var.env_name
+module "snowflake" {
+  source   = "../../_modules/snowflake"
+  env_name = local.environment_name
 }

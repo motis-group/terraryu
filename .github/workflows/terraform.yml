@@ -16,7 +16,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       # Environment configuration - modify these variables for your project
-      TF_ROOT_PATH: '.'
+      TF_ROOT_PATH: './environments'
       GLOBAL_PATH: 'global'
       STAGING_PATH: 'staging'
       PRODUCTION_PATH: 'production'
@@ -52,30 +52,38 @@ jobs:
             echo "ENVIRONMENT_PATH=${{ env.STAGING_PATH }}" >> $GITHUB_ENV
           fi
 
-      - name: Get AWS Secrets
+      - name: Setup GitHub Actions Secrets
         id: secrets
         run: |
-          # Retrieve all secrets for the environment
-          SECRETS=$(aws secretsmanager get-secret-value --secret-id ${{ env.SECRETS_PREFIX }}/${{ env.ENVIRONMENT }} --query SecretString --output text)
-
-          # Parse JSON and extract all key-value pairs
-          echo "$SECRETS" | jq -r 'to_entries[] | "TF_VAR_\(.key)=\(.value)"' | while read line; do
-            SECRET_VALUE=$(echo "$line" | cut -d= -f2-)
-            SECRET_NAME=$(echo "$line" | cut -d= -f1)
-            # Mask secrets in logs
-            echo "::add-mask::$SECRET_VALUE"
-            echo "$line" >> $GITHUB_ENV
+          # For each secret that starts with TF_VAR_
+          for secret_name in $(echo '${{ toJSON(secrets) }}' | jq -r 'keys[] | select(startswith("TF_VAR_"))'); do
+            # Get the secret value using GitHub's context
+            secret_value=$(jq -r --arg key "$secret_name" '.[$key]' <<< '${{ toJSON(secrets) }}')
+            
+            # Mask the secret in logs
+            echo "::add-mask::$secret_value"
+            
+            # Set as environment variable - ensure proper escaping
+            echo "$secret_name<<EOF" >> $GITHUB_ENV
+            echo "$secret_value" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+            
+            # Also set lowercase version for Terraform (which expects lowercase variables)
+            lowercase_name=$(echo "$secret_name" | tr '[:upper:]' '[:lower:]')
+            echo "$lowercase_name<<EOF" >> $GITHUB_ENV
+            echo "$secret_value" >> $GITHUB_ENV  
+            echo "EOF" >> $GITHUB_ENV
           done
 
       - name: Terraform Format
         id: fmt
-        working-directory: ${{ env.TF_ROOT_PATH }}
+        working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.ENVIRONMENT_PATH }}
         run: terraform fmt -check -recursive
 
       - name: Terraform Init
         id: init
         working-directory: ${{ env.TF_ROOT_PATH }}/${{ env.ENVIRONMENT_PATH }}
-        run: terraform init
+        run: terraform init -upgrade
 
       - name: Terraform Plan
         id: plan

@@ -40,7 +40,106 @@ resource "snowflake_schema" "analytics_public" {
 
 **Why?** Schemas provide a logical organization structure within databases. While we start with PUBLIC schemas, you can add additional schemas to separate data by source, department, or data domain.
 
-## 3. Provisioning Compute: Warehouses
+## 3. Creating Tables: Core Data Objects
+
+Once we have databases and schemas in place, we define tables to store the actual data:
+
+```terraform
+// Raw data tables (example)
+resource "snowflake_table" "raw_sales" {
+  database   = snowflake_database.raw.name
+  schema     = "PUBLIC"
+  name       = "SALES_RAW"
+  comment    = "Raw sales data from source system"
+
+  column {
+    name     = "id"
+    type     = "NUMBER(38,0)"
+    nullable = false
+  }
+
+  // Additional columns...
+
+  column {
+    name     = "raw_data"
+    type     = "VARIANT"
+    nullable = true
+    comment  = "Contains all source fields in JSON format"
+  }
+}
+
+// Analytics-ready tables (example)
+resource "snowflake_table" "analytics_sales" {
+  database   = snowflake_database.analytics.name
+  schema     = "PUBLIC"
+  name       = "SALES"
+  comment    = "Cleaned and transformed sales data"
+
+  // Columns with proper typing and constraints
+  // ...
+}
+```
+
+**Why?** Tables are the primary objects that store your data. The RAW database contains tables with minimally processed data from source systems, often including a JSON "raw_data" column to preserve the original structure. The ANALYTICS database contains clean, transformed tables optimized for analysis with:
+
+- Proper data types and nullability constraints
+- Descriptive names that match business concepts
+- Default values where appropriate
+- Computed columns that support common analysis patterns
+
+In practice, the tables in RAW are typically created by ELT tools like Fivetran or Stitch, while ANALYTICS tables are usually created by transformation tools like dbt. However, defining critical tables in Terraform provides documentation and ensures consistent structure.
+
+## 4. Integration with dbt Cloud for Views and Transformations
+
+Rather than defining views directly in Terraform, we use dbt Cloud for managing views and transformations. This approach separates infrastructure concerns from analytics development:
+
+```terraform
+// Instead of managing views in Terraform, we create schemas that dbt will use
+resource "snowflake_schema" "analytics_dbt_dev" {
+  database = snowflake_database.analytics.name
+  name     = "DBT_DEV"
+  comment  = "Schema for dbt development models"
+}
+
+resource "snowflake_schema" "analytics_dbt_prod" {
+  database = snowflake_database.analytics.name
+  name     = "DBT_PROD"
+  comment  = "Schema for production dbt models"
+}
+
+// Grant necessary permissions to the transformer role
+resource "snowflake_schema_grant" "dbt_schema_usage" {
+  database_name = snowflake_database.analytics.name
+  schema_name   = snowflake_schema.analytics_dbt_prod.name
+  privilege     = "USAGE"
+  roles         = [snowflake_role.transformer.name]
+}
+
+resource "snowflake_schema_grant" "dbt_schema_ownership" {
+  database_name = snowflake_database.analytics.name
+  schema_name   = snowflake_schema.analytics_dbt_prod.name
+  privilege     = "OWNERSHIP"
+  roles         = [snowflake_role.transformer.name]
+}
+```
+
+**Why?** This approach provides several benefits:
+
+- **Analyst Agility**: Analysts can create and modify views using SQL without infrastructure changes
+- **Version Control**: All view definitions are tracked in Git through dbt
+- **Testing**: dbt provides testing frameworks for data quality
+- **Documentation**: dbt generates documentation for all models
+- **Change Management**: Changes flow through development to production with proper controls
+
+Instead of defining views in Terraform, analysts will:
+
+1. Create dbt models (SQL files) in a Git repository
+2. Test and document these models
+3. Deploy through dbt Cloud's CI/CD pipeline
+
+This approach keeps infrastructure stable while enabling rapid iteration on analytics.
+
+## 5. Provisioning Compute: Warehouses
 
 Next, we create dedicated compute resources for different workloads:
 
@@ -68,12 +167,13 @@ resource "snowflake_warehouse" "reporting" {
 ```
 
 **Why?** Separate warehouses allow you to:
+
 - Right-size compute for specific workloads (ETL vs. transformation vs. reporting)
 - Control costs with appropriate auto-suspend settings
 - Monitor and attribute resource usage to specific processes
 - Prevent resource contention between workloads
 
-## 4. Establishing Security: Roles
+## 6. Establishing Security: Roles
 
 With our infrastructure in place, we now create roles that define what actions users can perform:
 
@@ -96,7 +196,7 @@ resource "snowflake_role" "reporter" {
 
 **Why?** Roles implement the principle of least privilege, ensuring users only have access to what they need. Each role maps to a specific function in the data pipeline: loading, transforming, or reporting.
 
-## 5. Creating Role Hierarchy
+## 7. Creating Role Hierarchy
 
 After creating individual roles, we establish their relationships through grants:
 
@@ -113,6 +213,7 @@ resource "snowflake_role_grants" "transformer_to_loader" {
 ```
 
 This creates a hierarchy:
+
 ```
 LOADER (highest privileges)
   │
@@ -125,7 +226,7 @@ REPORTER (lowest privileges)
 
 **Why?** Role inheritance creates a clear path of privilege escalation. Higher roles (LOADER) inherit all privileges from lower roles (TRANSFORMER, REPORTER), avoiding permission duplication and simplifying management.
 
-## 6. Assigning Database Privileges
+## 8. Assigning Database Privileges
 
 Next, we grant specific privileges on databases and schemas:
 
@@ -157,11 +258,12 @@ resource "snowflake_database_grant" "analytics_ownership_transformer" {
 ```
 
 **Why?** These grants implement our access control strategy:
+
 - LOADER owns RAW database (can create and modify objects)
 - TRANSFORMER has usage rights on RAW (can read data) and owns ANALYTICS (can create transformed data objects)
 - REPORTER has usage rights on ANALYTICS (can read transformed data)
 
-## 7. Schema and Object Privileges 
+## 9. Schema and Object Privileges
 
 After database-level grants, we configure schema and future object grants:
 
@@ -194,7 +296,7 @@ resource "snowflake_table_grant" "analytics_select_reporter" {
 
 **Why?** Future grants ensure that permissions apply automatically to new objects, maintaining consistent security as your data grows without requiring manual intervention for each new table or view.
 
-## 8. Warehouse Access Control
+## 10. Warehouse Access Control
 
 We then grant warehouse usage to the appropriate roles:
 
@@ -219,11 +321,12 @@ resource "snowflake_warehouse_grant" "reporting_usage" {
 ```
 
 **Why?** This completes our separation of concerns by ensuring each role can only use its designated warehouse:
+
 - LOADER uses the LOADING warehouse
 - TRANSFORMER uses the TRANSFORMING warehouse
 - REPORTER uses the REPORTING warehouse
 
-## 9. Creating Users and Service Accounts
+## 11. Creating Users and Service Accounts
 
 With our infrastructure and permissions configured, we create the actual user accounts:
 
@@ -256,7 +359,7 @@ resource "snowflake_user" "tableau" {
 
 **Why?** Each service account is configured with the appropriate default role and warehouse, ensuring tools connect with the correct permissions by default.
 
-## 10. Assigning Roles to Users
+## 12. Assigning Roles to Users
 
 Finally, we explicitly grant roles to users:
 
@@ -285,9 +388,7 @@ resource "snowflake_role_grants" "tableau_roles" {
 With this architecture in place, data flows through your system like this:
 
 1. **Data Loading**: ETL tools (Fivetran/Stitch) connect as the LOADER user, use the LOADING warehouse, and write data to the RAW database
-   
 2. **Data Transformation**: Transformation tools (dbt) connect as the TRANSFORMER user, use the TRANSFORMING warehouse, read from RAW, and write transformed data to ANALYTICS
-   
 3. **Data Consumption**: BI tools (Tableau/Mode) connect as the REPORTER user, use the REPORTING warehouse, and read from ANALYTICS
 
 ## Why This Chronological Approach Works
@@ -301,6 +402,7 @@ This step-by-step implementation:
 5. **Completes with user creation**: Everything is ready before users are added
 
 This architecture scales well as your data needs grow:
+
 - New data sources? Add them to RAW
 - New transformations? Build them in ANALYTICS
 - New user types? Create new roles with appropriate permissions
