@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  prefect-server:
+    image: prefecthq/prefect:2-python3.10
+    ports:
+      - '4200:4200'
+    environment:
+      - PREFECT_UI_API_URL=http://localhost:4200/api
+      - PREFECT_API_URL=http://localhost:4200/api
+    command: prefect server start --host 0.0.0.0
+    volumes:
+      - prefect-data:/root/.prefect
+    networks:
+      - prefect-network
+
+  prefect-agent:
+    build:
+      context: ..
+      dockerfile: docker/prefect-agent/Dockerfile
+    depends_on:
+      - prefect-server
+    environment:
+      - PREFECT_API_URL=http://prefect-server:4200/api
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT}
+      - SNOWFLAKE_USER=${SNOWFLAKE_USER}
+      - SNOWFLAKE_PASSWORD=${SNOWFLAKE_PASSWORD}
+    volumes:
+      - ../prefect:/app/prefect
+    networks:
+      - prefect-network
+
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - '4566:4566'
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - localstack-data:/tmp/localstack
+      - ../scripts:/docker-entrypoint-initaws.d
+    networks:
+      - prefect-network
+
+networks:
+  prefect-network:
+    driver: bridge
+
+volumes:
+  prefect-data:
+  localstack-data:
