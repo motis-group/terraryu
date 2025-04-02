@@ -129,7 +129,15 @@ echo ""
 print_blue "Registering Prefect blocks..."
 cd ..
 python -m prefect.blocks.storage
+python -m prefect.blocks.secrets
 print_green "Prefect blocks registered."
+echo ""
+
+# Explain credential management
+print_blue "Credential Management:"
+echo "  - Local development is using environment variables from .env file"
+echo "  - In production, credentials are managed through AWS Secrets Manager"
+echo "  - See docs/credential_management.md for more details"
 echo ""
 
 # Setup complete
