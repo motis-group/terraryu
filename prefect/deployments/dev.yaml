@@ -7,21 +7,22 @@ deployments:
     parameters:
       s3_bucket_block_name: dev-data-bucket
       s3_key: sample_data.csv
-      snowflake_block_name: dev-snowflake
       table_name: sample_table
       schema: DEV_SCHEMA
       config_block_name: etl-config
+      environment: dev
     schedule:
       cron: '0 */3 * * *' # Every 3 hours
     work_pool:
       name: default-agent-pool
       work_queue_name: default
     infrastructure:
-      type: process
+      type: ecs-task
+      task_definition_arn: ${PREFECT_ECS_TASK_DEFINITION_ARN}
+      execution_role_arn: ${PREFECT_ECS_EXECUTION_ROLE_ARN}
+      task_role_arn: ${PREFECT_ECS_TASK_ROLE_ARN}
+      cluster: ${PREFECT_ECS_CLUSTER}
+      launch_type: FARGATE
       env:
-        AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-        AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-        SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
-        SNOWFLAKE_USER: ${SNOWFLAKE_USER}
-        SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
-    description: 'DEV: Flow that loads data from S3 to Snowflake'
+        ENVIRONMENT: dev
+    description: 'DEV: Flow that loads data from S3 to Snowflake using AWS Secrets Manager'
